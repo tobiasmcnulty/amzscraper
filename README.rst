@@ -6,8 +6,9 @@ for receipt/tax purposes.
 
 To use::
 
-
-    git clone pip install -r requirements.txt
+    git clone https://github.com/tobiasmcnulty/amzscraper.git
+    mkvirtualenv amzscraper
+    pip install -r requirements.txt
     python amz.py -u <email> -p <pass> --years 2013 2014 2015
 
 If you have memcached running locally (recommended), it will cache URL contents for a
