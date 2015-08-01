@@ -17,3 +17,11 @@ sleep is inserted to throttle connections to the server.
 
 Orders will be downloaded to the ``orders/`` directory in your current directory by
 default
+
+Requirements
+------------
+
+* Python 2.7
+* virtualenv and virtualenvwrapper
+* wkhtmltopdf installed and in your ``PATH``
+* memcached running locally, for caching
