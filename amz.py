@@ -1,22 +1,26 @@
 import os
 import re
-import sys
 import time
 import random
 import hashlib
 import argparse
 import memcache
 import datetime
-import mechanize 
+import mechanize
 import subprocess
 
 from BeautifulSoup import BeautifulSoup
 
+
 class AmzScraper(object):
+    headers = [
+        ('User-agent', 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.13) '
+                       'Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13')
+    ]
     login_url = 'https://www.amazon.com/gp/sign-in.html'
-    start_url = 'https://www.amazon.com/gp/css/history/orders/view.html?orderFilter=year-%s&startAtIndex=1000'
-    page_url = 'https://www.amazon.com/gp/your-account/order-history/ref=oh_aui_pagination_{op}_{dp}?ie=UTF8&orderFilter=year-{yr}&search=&startIndex={idx}'
-    order_url = 'https://www.amazon.com/gp/css/summary/print.html/ref=od_aui_print_invoice?ie=UTF8&orderID={oid}'
+    start_url = 'https://www.amazon.com/gp/css/history/orders/view.html?orderFilter=year-{yr}&startAtIndex=1000'  # noqa
+    page_url = 'https://www.amazon.com/gp/your-account/order-history/ref=oh_aui_pagination_{op}_{dp}?ie=UTF8&orderFilter=year-{yr}&search=&startIndex={idx}'  # noqa
+    order_url = 'https://www.amazon.com/gp/css/summary/print.html/ref=od_aui_print_invoice?ie=UTF8&orderID={oid}'  # noqa
 
     pages_re = re.compile(r'href="\/gp\/your-account\/order-history\/.+pagination_\d+_(\d+).+?"')
     order_id_re = re.compile(r'href=".+?orderID=([0-9-]+)"')
@@ -26,25 +30,24 @@ class AmzScraper(object):
         self.year = year
         self.orders_dir = orders_dir
         self.cache_timeout = cache_timeout
-
         self.mc = memcache.Client(['127.0.0.1:11211'], debug=0)
-        self.br = mechanize.Browser()  
-        self.br.set_handle_robots(False)  
-        self.br.addheaders = [('User-agent', 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13')]  
-   
+        self.br = mechanize.Browser()
+        self.br.set_handle_robots(False)
+        self.br.addheaders = self.headers
         self.login(email, password)
 
     def login(self, email, password):
         self.br.open('https://www.amazon.com')
         self.br.follow_link(text_regex='Sign in')
-        self.br.select_form(nr=0)  
+        self.br.select_form(nr=0)
         self.br['email'] = email
         self.br['password'] = password
         resp = self.br.submit()
         if resp.code != 200:
             raise Exception('Got invalid response code %s' % resp.code)
         elif resp.geturl().startswith('https://www.amazon.com/ap/signin'):  # not the URL we wanted
-            soup = BeautifulSoup(resp.get_data())
+            html = resp.get_data()
+            soup = BeautifulSoup(html)
             err = soup.findAll('div', attrs={'id': 'message_error'})
             msg = (err and err[0].renderContents() or html).strip()
             raise Exception('Login failed for %s, %s: %s' % (email, password, msg))
@@ -56,14 +59,14 @@ class AmzScraper(object):
             print 'fetching %s from server (with random sleep)' % url
             val = self.br.open(url).get_data()
             # wait a little while so we don't spam Amazon
-            time.sleep(random.randint(1,5))
+            time.sleep(random.randint(1, 5))
             self.mc.set(key, val, self.cache_timeout)
         else:
             print 'using cache for %s' % url
         return val
 
     def get_page_nums(self):
-        orders_html = self._fetch_url(self.start_url % self.year)
+        orders_html = self._fetch_url(self.start_url.format(yr=self.year))
         # retrieve a list of the page numbers linked from this page (may not be complete)
         page_nums = [int(x) for x in re.findall(self.pages_re, orders_html)]
         if page_nums:
@@ -80,7 +83,8 @@ class AmzScraper(object):
         page_nums = list(page_nums)
         while page_nums:
             page_num = page_nums.pop(0)
-            url = self.page_url.format(op=page_num-1, dp=page_num, yr=self.year, idx=(page_num-1)*10)
+            idx = (page_num - 1) * 10  # 10 items per page
+            url = self.page_url.format(op=page_num-1, dp=page_num, yr=self.year, idx=idx)
             html = self._fetch_url(url)
             order_nums |= set(re.findall(self.order_id_re, html))
         print 'found %s orders in %s' % (len(order_nums), self.year)
@@ -109,6 +113,7 @@ class AmzScraper(object):
                                    fn.format(ext='html'), fn.format(ext='pdf')])
             os.remove(fn.format(ext='html'))
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Scrape an Amazon account and create order PDFs.')
     parser.add_argument('-u', '--user', required=True, help='Amazon.com username (email).')
@@ -122,6 +127,7 @@ def parse_args():
     parser.add_argument('--dest-dir', required=False, default='orders/',
                         help='Destination directory for scraped order PDFs. Defaults to "orders/"')
     return parser.parse_args()
+
 
 def main():
     args = parse_args()
