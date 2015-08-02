@@ -118,20 +118,19 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Scrape an Amazon account and create order PDFs.')
     parser.add_argument('-u', '--user', required=True, help='Amazon.com username (email).')
     parser.add_argument('-p', '--password', required=True, help='Amazon.com password.')
-    parser.add_argument('--years', required=False, action='append', nargs='+', type=int,
-                        default=[[datetime.datetime.today().year]], help='One or more years '
-                        'for which to retrieve orders. Will default to the current year '
-                        'if no year is specified.')
     parser.add_argument('--cache-timeout', required=False, default=21600,
                         help='Timeout for URL caching, in seconds. Defaults to 6 hours.')
     parser.add_argument('--dest-dir', required=False, default='orders/',
                         help='Destination directory for scraped order PDFs. Defaults to "orders/"')
+    parser.add_argument('year', nargs='*', type=int, default=datetime.datetime.today().year,
+                        help='One or more years for which to retrieve orders. Will default to the '
+                        'current year if no year is specified.')
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    for year in args.years[0]:
+    for year in args.year:
         AmzScraper(args.user, args.password, year=year, cache_timeout=args.cache_timeout,
                    orders_dir=args.dest_dir).run()
 
