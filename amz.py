@@ -6,10 +6,11 @@ import hashlib
 import argparse
 import memcache
 import datetime
+import itertools
 import mechanize
 import subprocess
 
-from BeautifulSoup import BeautifulSoup
+from bs4 import BeautifulSoup
 
 
 class AmzScraper(object):
@@ -17,14 +18,12 @@ class AmzScraper(object):
         ('User-agent', 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.13) '
                        'Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13')
     ]
-    login_url = 'https://www.amazon.com/gp/sign-in.html'
-    start_url = 'https://www.amazon.com/gp/css/history/orders/view.html?orderFilter=year-{yr}&startAtIndex=1000'  # noqa
-    page_url = 'https://www.amazon.com/gp/your-account/order-history/ref=oh_aui_pagination_{op}_{dp}?ie=UTF8&orderFilter=year-{yr}&search=&startIndex={idx}'  # noqa
-    order_url = 'https://www.amazon.com/gp/css/summary/print.html/ref=od_aui_print_invoice?ie=UTF8&orderID={oid}'  # noqa
+    base_url = 'https://www.amazon.com'
+    start_url = base_url+'/gp/css/history/orders/view.html?orderFilter=year-{yr}&startAtIndex=1000'
+    order_url = base_url+'/gp/css/summary/print.html/ref=od_aui_print_invoice?ie=UTF8&orderID={oid}'
 
-    pages_re = re.compile(r'href="\/gp\/your-account\/order-history\/.+pagination_\d+_(\d+).+?"')
-    order_id_re = re.compile(r'href=".+?orderID=([0-9-]+)"')
-    order_date_re = re.compile(r'Order Placed:.+?([a-zA-Z]+ \d{1,2}, \d{4})')
+    order_date_re = re.compile(r'Order Placed:')
+    order_id_re = re.compile(r'orderID=([0-9-]+)')
 
     def __init__(self, email, password, year, orders_dir, cache_timeout):
         self.email = email
@@ -49,8 +48,8 @@ class AmzScraper(object):
             raise Exception('Got invalid response code %s' % resp.code)
         elif resp.geturl().startswith('https://www.amazon.com/ap/signin'):  # not the URL we wanted
             html = resp.get_data()
-            soup = BeautifulSoup(html)
-            err = soup.findAll('div', attrs={'id': 'message_error'})
+            soup = BeautifulSoup(html, 'lxml')
+            err = soup.find_all('div', attrs={'id': 'message_error'})
             msg = (err and err[0].renderContents() or html).strip()
             raise Exception('Login failed for %s, %s: %s' % (self.email, self.password, msg))
 
@@ -79,34 +78,24 @@ class AmzScraper(object):
             from_cache = True
         return val, from_cache
 
-    def get_page_nums(self):
-        orders_html, _ = self._fetch_url(self.start_url.format(yr=self.year))
-        # retrieve a list of the page numbers linked from this page (may not be complete)
-        page_nums = [int(x) for x in re.findall(self.pages_re, orders_html)]
-        if page_nums:
-            # add the missing pages
-            page_nums = range(min(page_nums), max(page_nums) + 1)
-        else:
-            # no page links were found, so there's only one page (which may or may not have orders)
-            page_nums = [1]
-        print 'found pages: %s' % page_nums
-        return page_nums
-
-    def get_order_nums(self, page_nums):
+    def get_order_nums(self):
         order_nums = set()
-        page_nums = list(page_nums)
-        while page_nums:
-            page_num = page_nums.pop(0)
-            idx = (page_num - 1) * 10  # 10 items per page
-            url = self.page_url.format(op=page_num-1, dp=page_num, yr=self.year, idx=idx)
+        url = self.start_url.format(yr=self.year)
+        for page_num in itertools.count(start=2, step=1):
             html, _ = self._fetch_url(url)
-            order_nums |= set(re.findall(self.order_id_re, html))
+            soup = BeautifulSoup(html, 'lxml')
+            order_links = soup.find_all('a', href=self.order_id_re)
+            order_nums |= set([self.order_id_re.search(l['href']).group(1) for l in order_links])
+            page_links = soup.find_all('a', text=str(page_num))
+            if not page_links:
+                print 'found no links for page_num=%s; assuming completion' % page_num
+                break
+            url = self.base_url + page_links[0]['href']
         print 'found %s orders in %s' % (len(order_nums), self.year)
         return order_nums
 
     def run(self):
-        page_nums = self.get_page_nums()
-        order_nums = self.get_order_nums(page_nums)
+        order_nums = self.get_order_nums()
         for oid in order_nums:
             orders = os.listdir(self.orders_dir)
             if any(['{oid}.pdf'.format(oid=oid) in o for o in orders]):
@@ -120,7 +109,9 @@ class AmzScraper(object):
             if 'Final Details for Order #' not in html:
                 print 'skipping order %s (not final)' % oid
                 continue
-            date = re.findall(self.order_date_re, html.replace('\n', ' '))[0].strip()
+            soup = BeautifulSoup(html, 'lxml')
+            order_txt = soup.find_all(text=self.order_date_re)[0]
+            date = order_txt.parent.next_sibling.strip()
             date = datetime.datetime.strptime(date, '%B %d, %Y').strftime('%Y-%m-%d')
             fn = 'amazon_order_{date}_{oid}.'.format(date=date, oid=oid) + '{ext}'
             fn = os.path.join(self.orders_dir, fn)
