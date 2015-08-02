@@ -22,6 +22,6 @@ Requirements
 ------------
 
 * Python 2.7
-* virtualenv and virtualenvwrapper
-* wkhtmltopdf installed and in your ``PATH``
-* memcached running locally, for caching
+* ``virtualenv`` and ``virtualenvwrapper``
+* ``wkhtmltopdf`` installed and in your ``PATH``
+* ``memcached`` running locally, for caching
