@@ -29,3 +29,9 @@ Requirements
 * ``virtualenv`` and ``virtualenvwrapper``
 * ``wkhtmltopdf`` installed and in your ``PATH``
 * ``memcached`` running locally, for caching
+
+Credits
+-------
+
+This is loosely based on an `earlier project <http://chase-seibert.github.io/blog/2011/01/15/backup-your-amazon-order-history-with-python.html>`_
+by Chase Seibert.
