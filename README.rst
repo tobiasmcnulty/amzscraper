@@ -1,8 +1,8 @@
 Amazon Order Scraper
 ====================
 
-This is a simple Python script to scrape all your Amazon orders and create handy PDFs
-for receipt/tax purposes.
+This is a simple script using the Python ``mechanize`` library to scrape all your Amazon
+orders and create handy PDFs for receipt/tax purposes.
 
 To use::
 
