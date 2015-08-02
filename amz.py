@@ -27,6 +27,8 @@ class AmzScraper(object):
     order_date_re = re.compile(r'Order Placed:.+?([a-zA-Z]+ \d{1,2}, \d{4})')
 
     def __init__(self, email, password, year, orders_dir, cache_timeout):
+        self.email = email
+        self.password = password
         self.year = year
         self.orders_dir = orders_dir
         self.cache_timeout = cache_timeout
@@ -34,14 +36,14 @@ class AmzScraper(object):
         self.br = mechanize.Browser()
         self.br.set_handle_robots(False)
         self.br.addheaders = self.headers
-        self.login(email, password)
+        self.login()
 
-    def login(self, email, password):
+    def login(self):
         self.br.open('https://www.amazon.com')
         self.br.follow_link(text_regex='Sign in')
         self.br.select_form(nr=0)
-        self.br['email'] = email
-        self.br['password'] = password
+        self.br['email'] = self.email
+        self.br['password'] = self.password
         resp = self.br.submit()
         if resp.code != 200:
             raise Exception('Got invalid response code %s' % resp.code)
@@ -50,23 +52,35 @@ class AmzScraper(object):
             soup = BeautifulSoup(html)
             err = soup.findAll('div', attrs={'id': 'message_error'})
             msg = (err and err[0].renderContents() or html).strip()
-            raise Exception('Login failed for %s, %s: %s' % (email, password, msg))
+            raise Exception('Login failed for %s, %s: %s' % (self.email, self.password, msg))
 
-    def _fetch_url(self, url):
+    def _fetch_url(self, url, use_cache=True):
         key = hashlib.md5(url).hexdigest()
-        val = self.mc.get(key)
+        val = use_cache and self.mc.get(key) or None
         if not val:
             print 'fetching %s from server (with random sleep)' % url
-            val = self.br.open(url).get_data()
+            for x in range(3):
+                resp = self.br.open(url)
+                if resp.geturl() == url:
+                    break
+                print 'got unexpected URL (%s); expecting %s. attempting re-login...'\
+                      '' % (resp.geturl(), url)
+                self.login()
+            else:
+                raise Exception('Got an unexpected URL (most recently, %s) 3 times. Expected URL: '
+                                '%s' % (resp.geturl(), url))
+            val = resp.get_data()
             # wait a little while so we don't spam Amazon
             time.sleep(random.randint(1, 5))
             self.mc.set(key, val, self.cache_timeout)
+            from_cache = False
         else:
             print 'using cache for %s' % url
-        return val
+            from_cache = True
+        return val, from_cache
 
     def get_page_nums(self):
-        orders_html = self._fetch_url(self.start_url.format(yr=self.year))
+        orders_html, _ = self._fetch_url(self.start_url.format(yr=self.year))
         # retrieve a list of the page numbers linked from this page (may not be complete)
         page_nums = [int(x) for x in re.findall(self.pages_re, orders_html)]
         if page_nums:
@@ -85,7 +99,7 @@ class AmzScraper(object):
             page_num = page_nums.pop(0)
             idx = (page_num - 1) * 10  # 10 items per page
             url = self.page_url.format(op=page_num-1, dp=page_num, yr=self.year, idx=idx)
-            html = self._fetch_url(url)
+            html, _ = self._fetch_url(url)
             order_nums |= set(re.findall(self.order_id_re, html))
         print 'found %s orders in %s' % (len(order_nums), self.year)
         return order_nums
@@ -99,7 +113,10 @@ class AmzScraper(object):
                 print 'skipping order %s (already exists)' % oid
                 continue
             url = self.order_url.format(oid=oid)
-            html = self._fetch_url(url)
+            html, from_cache = self._fetch_url(url)
+            # force a re-fetch if we got a non-final order from the cache:
+            if 'Final Details for Order #' not in html and from_cache:
+                html, _ = self._fetch_url(url, use_cache=False)
             if 'Final Details for Order #' not in html:
                 print 'skipping order %s (not final)' % oid
                 continue
