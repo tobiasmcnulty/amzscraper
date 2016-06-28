@@ -1,3 +1,4 @@
-BeautifulSoup4==4.4.0
-mechanize==0.2.5
-python-memcached==1.57
+BeautifulSoup4
+mechanize
+python-memcached
+selenium
