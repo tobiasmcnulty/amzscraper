@@ -72,7 +72,7 @@ class AmzChromeDriver(object):
     def login(self, email, password):
         driver = self.driver
         driver.get("https://www.amazon.com/")
-        driver.find_element_by_css_selector("#nav-link-yourAccount > span.nav-line-1").click()
+        driver.find_element_by_css_selector("#nav-signin-tooltip > a.nav-action-button").click()
         driver.find_element_by_id("ap_email").clear()
         driver.find_element_by_id("ap_email").send_keys(email)
         driver.find_element_by_id("ap_password").clear()
