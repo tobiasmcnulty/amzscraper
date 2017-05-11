@@ -29,6 +29,7 @@ Requirements
 * ``virtualenv`` and ``virtualenvwrapper``
 * ``wkhtmltopdf`` installed and in your ``PATH``
 * ``memcached`` running locally, for caching
+* ``chromedriver`` installed and in your ``PATH``
 
 Credits
 -------
