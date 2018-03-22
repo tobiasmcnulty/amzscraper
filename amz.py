@@ -38,7 +38,7 @@ class AmzMechanize(object):
 
     def login(self, email, password):
         self.br.open('https://www.amazon.com')
-        resp = self.br.follow_link(text_regex='Sign in')
+        resp = self.br.follow_link(text_regex='Hello. Sign in')
         self.br.select_form(nr=0)
         self.br['email'] = email
         self.br['password'] = password
@@ -75,6 +75,7 @@ class AmzChromeDriver(object):
         driver.find_element_by_css_selector("#nav-signin-tooltip > a.nav-action-button").click()
         driver.find_element_by_id("ap_email").clear()
         driver.find_element_by_id("ap_email").send_keys(email)
+        driver.find_element_by_id("continue").click()
         driver.find_element_by_id("ap_password").clear()
         driver.find_element_by_id("ap_password").send_keys(password)
         driver.find_element_by_id("signInSubmit").click()
