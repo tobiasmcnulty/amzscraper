@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import re
 import sys
@@ -19,6 +21,17 @@ from email.utils import COMMASPACE, formatdate
 
 reload(sys)
 sys.setdefaultencoding('utf8')
+
+
+def rand_sleep(max_seconds=5):
+    """
+    Wait a little while so we don't spam Amazon.
+    """
+    seconds = random.randint(2, max_seconds)
+    print("Sleeping for %s seconds..." % seconds, end="")
+    sys.stdout.flush()
+    time.sleep(seconds)
+    print("done.")
 
 
 class AmzMechanize(object):
@@ -72,10 +85,14 @@ class AmzChromeDriver(object):
     def login(self, email, password):
         driver = self.driver
         driver.get("https://www.amazon.com/")
+        rand_sleep()
         driver.find_element_by_css_selector("#nav-signin-tooltip > a.nav-action-button").click()
+        rand_sleep()
         driver.find_element_by_id("ap_email").clear()
         driver.find_element_by_id("ap_email").send_keys(email)
-        driver.find_element_by_id("continue").click()
+        # Sometimes there is a Continue button after entering your email; sometimes there isn't.
+        # You might have to uncomment the row below if there is one.
+        # driver.find_element_by_id("continue").click()
         driver.find_element_by_id("ap_password").clear()
         driver.find_element_by_id("ap_password").send_keys(password)
         driver.find_element_by_id("signInSubmit").click()
@@ -107,7 +124,7 @@ class Emailer(object):
 
         for f in files or []:
             with open(f, "rb") as fil:
-                print 'attaching', os.path.basename(f)
+                print('attaching', os.path.basename(f))
                 msg.attach(MIMEApplication(
                     fil.read(),
                     'pdf',
@@ -147,14 +164,13 @@ class AmzScraper(object):
         key = hashlib.md5(url).hexdigest()
         val = use_cache and self.mc.get(key) or None
         if not val:
-            print 'fetching %s from server (with random sleep)' % url
+            print('fetching %s from server (with random sleep)' % url)
             val = self.br.get_url(url)
-            # wait a little while so we don't spam Amazon
-            time.sleep(random.randint(1, 5))
+            rand_sleep()
             self.mc.set(key, val, self.cache_timeout)
             from_cache = False
         else:
-            print 'using cache for %s' % url
+            print('using cache for %s' % url)
             from_cache = True
         return val, from_cache
 
@@ -168,10 +184,10 @@ class AmzScraper(object):
             order_nums |= set([self.order_id_re.search(l['href']).group(1) for l in order_links])
             page_links = soup.find_all('a', text=str(page_num))
             if not page_links:
-                print 'found no links for page_num=%s; assuming completion' % page_num
+                print('found no links for page_num=%s; assuming completion' % page_num)
                 break
             url = self.base_url + page_links[0]['href']
-        print 'found %s orders in %s' % (len(order_nums), self.year)
+        print('found %s orders in %s' % (len(order_nums), self.year))
         return order_nums
 
     def run(self):
@@ -179,7 +195,7 @@ class AmzScraper(object):
         for oid in order_nums:
             orders = os.listdir(self.orders_dir)
             if any(['{oid}.pdf'.format(oid=oid) in o for o in orders]):
-                print 'skipping order %s (already exists)' % oid
+                print('skipping order %s (already exists)' % oid)
                 continue
             url = self.order_url.format(oid=oid)
             html, from_cache = self._fetch_url(url)
@@ -187,7 +203,7 @@ class AmzScraper(object):
             if 'Final Details for Order #' not in html and from_cache:
                 html, _ = self._fetch_url(url, use_cache=False)
             if 'Final Details for Order #' not in html:
-                print 'skipping order %s (not final)' % oid
+                print('skipping order %s (not final)' % oid)
                 continue
             soup = BeautifulSoup(html, 'lxml')
             order_txt = soup.find_all(text=self.order_date_re)[0]
@@ -207,7 +223,7 @@ class AmzScraper(object):
                 self.emailer.send_mail(self.from_email, [self.to_email], subject, body,
                                        [os.path.abspath(fn.format(ext='pdf'))])
             else:
-                print 'skipping email send for order %s' % oid
+                print('skipping email send for order %s' % oid)
 
 
 def parse_args():
