@@ -18,6 +18,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
+from selenium.common.exceptions import NoSuchElementException
 
 reload(sys)
 sys.setdefaultencoding('utf8')
@@ -80,7 +81,7 @@ class AmzChromeDriver(object):
     def __init__(self):
         from selenium import webdriver
         self.driver = webdriver.Chrome('/usr/local/bin/chromedriver')
-        self.driver.implicitly_wait(30)
+        self.driver.implicitly_wait(5)
 
     def login(self, email, password):
         driver = self.driver
@@ -91,8 +92,11 @@ class AmzChromeDriver(object):
         driver.find_element_by_id("ap_email").clear()
         driver.find_element_by_id("ap_email").send_keys(email)
         # Sometimes there is a Continue button after entering your email; sometimes there isn't.
-        # You might have to uncomment the row below if there is one.
-        # driver.find_element_by_id("continue").click()
+        try:
+            driver.find_element_by_id("continue").click()
+            rand_sleep()
+        except NoSuchElementException:
+            print("No continue button found; ignoring...")
         driver.find_element_by_id("ap_password").clear()
         driver.find_element_by_id("ap_password").send_keys(password)
         driver.find_element_by_id("signInSubmit").click()
