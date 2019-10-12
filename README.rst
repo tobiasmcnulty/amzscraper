@@ -7,7 +7,7 @@ orders and create handy PDFs for receipt/tax purposes.
 To use::
 
     git clone https://github.com/tobiasmcnulty/amzscraper.git
-    mkvirtualenv amzscraper
+    mkvirtualenv -p python3.7 amzscraper
     pip install -r requirements.txt
     python amz.py -u <email> -p <pass> 2013 2014 2015
 
@@ -25,7 +25,7 @@ For further options, see::
 Requirements
 ------------
 
-* Python 2.7
+* Python 3.7+
 * ``virtualenv`` and ``virtualenvwrapper``
 * ``wkhtmltopdf`` installed and in your ``PATH``
 * ``memcached`` running locally, for caching

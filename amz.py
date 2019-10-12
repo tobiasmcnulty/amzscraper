@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import os
 import re
 import sys
@@ -19,9 +17,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from selenium.common.exceptions import NoSuchElementException
-
-reload(sys)
-sys.setdefaultencoding('utf8')
 
 
 def rand_sleep(max_seconds=5):
@@ -165,8 +160,8 @@ class AmzScraper(object):
         self.br.login(user, password)
 
     def _fetch_url(self, url, use_cache=True):
-        key = hashlib.md5(url).hexdigest()
-        val = use_cache and self.mc.get(key) or None
+        key = hashlib.md5(url.encode('utf-8')).hexdigest()
+        val = use_cache and self.mc.get(key.encode('utf-8')) or None
         if not val:
             print('fetching %s from server (with random sleep)' % url)
             val = self.br.get_url(url)
@@ -216,7 +211,7 @@ class AmzScraper(object):
             fn = 'amazon_order_{date}_{oid}.'.format(date=date, oid=oid) + '{ext}'
             fn = os.path.join(self.orders_dir, fn)
             with open(fn.format(ext='html'), 'w') as f:
-                f.write(html.encode('ascii', 'ignore'))
+                f.write(html)
             subprocess.check_call(['wkhtmltopdf', '--no-images', '--disable-javascript',
                                    fn.format(ext='html'), fn.format(ext='pdf')])
             os.remove(fn.format(ext='html'))
@@ -252,7 +247,7 @@ def parse_args():
 
 def main():
     args = vars(parse_args())
-    smtp_args = dict((k, args.pop(k)) for k in args.keys() if k.startswith('smtp_'))
+    smtp_args = {k: args.pop(k) for k in list(args.keys()) if k.startswith('smtp_')}
     if len(smtp_args) == 4:
         emailer = Emailer(**smtp_args)
     elif len(smtp_args) == 0:
