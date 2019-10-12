@@ -1,21 +1,21 @@
+import argparse
+import datetime
+import hashlib
+import itertools
 import os
+import random
 import re
+import smtplib
+import subprocess
 import sys
 import time
-import random
-import hashlib
-import smtplib
-import argparse
-import memcache
-import datetime
-import itertools
-import subprocess
-
-from bs4 import BeautifulSoup
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
+
+import memcache
+from bs4 import BeautifulSoup
 from selenium.common.exceptions import NoSuchElementException
 
 
@@ -82,7 +82,10 @@ class AmzMechanize(object):
 
 
 class AmzChromeDriver(object):
-    """ Replacement driver to login to Amazon and download URLs using the Selenium ChromeDriver. """
+    """
+    Replacement driver to login to Amazon and download URLs using the Selenium
+    ChromeDriver.
+    """
 
     def __init__(self):
         from selenium import webdriver
@@ -100,7 +103,8 @@ class AmzChromeDriver(object):
         rand_sleep()
         driver.find_element_by_id("ap_email").clear()
         driver.find_element_by_id("ap_email").send_keys(email)
-        # Sometimes there is a Continue button after entering your email; sometimes there isn't.
+        # Sometimes there is a Continue button after entering your email;
+        # sometimes there isn't.
         try:
             driver.find_element_by_id("continue").click()
             rand_sleep()
