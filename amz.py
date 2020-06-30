@@ -116,6 +116,9 @@ class AmzChromeDriver(object):
 
     def get_url(self, url):
         self.driver.get(url)
+        # doesn't always work the first time, so get the page twice (agh!)
+        time.sleep(1)
+        self.driver.get(url)
         return self.driver.page_source
 
     def clean_up(self):
@@ -217,7 +220,7 @@ class AmzScraper(object):
             soup = BeautifulSoup(html, "lxml")
             order_links = soup.find_all("a", href=self.order_id_re)
             order_nums |= set(
-                [self.order_id_re.search(l["href"]).group(1) for l in order_links]
+                [self.order_id_re.search(link["href"]).group(1) for link in order_links]
             )
             page_links = soup.find_all("a", text=str(page_num))
             if not page_links:
