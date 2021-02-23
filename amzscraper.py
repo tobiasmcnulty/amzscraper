@@ -15,7 +15,6 @@ from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 
 from bs4 import BeautifulSoup
-from pymemcache.client.base import Client
 from selenium.common.exceptions import NoSuchElementException
 
 
@@ -132,7 +131,6 @@ class AmzScraper(object):
         user,
         password,
         dest_dir,
-        cache_timeout,
         from_email,
         to_email,
         brcls=AmzChromeDriver,
@@ -140,33 +138,24 @@ class AmzScraper(object):
     ):
         self.year = year
         self.orders_dir = dest_dir
-        self.cache_timeout = cache_timeout
         self.from_email = from_email
         self.to_email = to_email
         self.emailer = emailer
-        self.mc = Client("127.0.0.1:11211")
         self.br = brcls()
         self.br.login(user, password)
 
-    def _fetch_url(self, url, use_cache=True):
+    def _fetch_url(self, url):
         key = hashlib.md5(url.encode("utf-8")).hexdigest()
-        val = use_cache and self.mc.get(key.encode("utf-8")) or None
-        if not val:
-            print("fetching %s from server (with random sleep)" % url)
-            val = self.br.get_url(url)
-            rand_sleep()
-            self.mc.set(key, val, self.cache_timeout)
-            from_cache = False
-        else:
-            print("using cache for %s" % url)
-            from_cache = True
-        return val, from_cache
+        print("fetching %s from server (with random sleep)" % url)
+        val = self.br.get_url(url)
+        rand_sleep()
+        return val
 
     def get_order_nums(self):
         order_nums = set()
         url = self.start_url.format(yr=self.year)
         for page_num in itertools.count(start=2, step=1):
-            html, _ = self._fetch_url(url)
+            html = self._fetch_url(url)
             soup = BeautifulSoup(html, "lxml")
             order_links = soup.find_all("a", href=self.order_id_re)
             order_nums |= set(
@@ -188,10 +177,7 @@ class AmzScraper(object):
                 print("skipping order %s (already exists)" % oid)
                 continue
             url = self.order_url.format(oid=oid)
-            html, from_cache = self._fetch_url(url)
-            # force a re-fetch if we got a non-final order from the cache:
-            if "Final Details for Order #" not in html and from_cache:
-                html, _ = self._fetch_url(url, use_cache=False)
+            html = self._fetch_url(url)
             if "Final Details for Order #" not in html:
                 print("skipping order %s (not final)" % oid)
                 continue
@@ -279,12 +265,6 @@ def parse_args():
         required=False,
         help="To email (for sending emails).",
         default=os.environ.get("TO_EMAIL"),
-    )
-    parser.add_argument(
-        "--cache-timeout",
-        required=False,
-        default=21600,
-        help="Timeout for URL caching, in seconds. Defaults to 6 hours.",
     )
     parser.add_argument(
         "--dest-dir",

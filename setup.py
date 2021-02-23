@@ -13,7 +13,6 @@ setup(
         "beautifulsoup4==4.9.3",
         "selenium==3.141.0",
         "lxml==4.6.2",
-        "pymemcache==3.4.0",
     ],
     entry_points={
         "console_scripts": [

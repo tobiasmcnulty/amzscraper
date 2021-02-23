@@ -1,26 +1,24 @@
 Amazon Order Scraper
 ====================
 
-This is a simple script using the Python ``mechanize`` library to scrape all your Amazon
+This is a simple script using the Python selenium library to scrape all your Amazon
 orders and create handy PDFs for receipt/tax purposes.
 
 To use::
 
-    git clone https://github.com/tobiasmcnulty/amzscraper.git
-    mkvirtualenv -p python3.7 amzscraper
-    pip install -r requirements.txt
-    python amz.py -u <email> -p <pass> 2013 2014 2015
+    mkvirtualenv -p python3.9 amzscraper
+    pip install git+https://github.com/tobiasmcnulty/amzscraper.git
+    amscraper -u <email> -p <pass> 2021
 
-If you have memcached running locally (recommended), it will cache URL contents for six
-hours to avoid spamming Amazon. If it does need to download a page from Amazon, a random
-sleep is inserted to throttle connections to the server.
+If it does need to download a page from Amazon, a random sleep is inserted to throttle
+connections to the server.
 
 Orders will be downloaded to the ``orders/`` directory in your current directory by
 default
 
 For further options, see::
 
-    python amz.py -h
+    amzscraper -h
 
 Requirements
 ------------
@@ -28,7 +26,6 @@ Requirements
 * Python 3.7+
 * ``virtualenv`` and ``virtualenvwrapper``
 * ``wkhtmltopdf`` installed and in your ``PATH``
-* ``memcached`` running locally, for caching
 * ``chromedriver`` installed and in your ``PATH``
 
 Credits
