@@ -14,8 +14,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 
-import memcache
 from bs4 import BeautifulSoup
+from pymemcache.client.base import Client
 from selenium.common.exceptions import NoSuchElementException
 
 
@@ -30,57 +30,6 @@ def rand_sleep(max_seconds=5):
     print("done.")
 
 
-class AmzMechanize(object):
-    """ Use Python mechanize to login and retrieve URLs. Broken as of May 2016. """
-
-    headers = [
-        # ('User-agent', 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.13) '
-        #                'Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13')
-        (
-            "User-agent",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36",
-        )
-    ]
-
-    def __init__(self):
-        import mechanize
-
-        self.br = mechanize.Browser()
-        self.br.set_handle_robots(False)
-        self.br.addheaders = self.headers
-
-    def login(self, email, password):
-        self.br.open("https://www.amazon.com")
-        resp = self.br.follow_link(text_regex="Hello. Sign in")
-        self.br.select_form(nr=0)
-        self.br["email"] = email
-        self.br["password"] = password
-        resp = self.br.submit()
-        if resp.code != 200:
-            raise Exception("Got invalid response code %s" % resp.code)
-        elif resp.geturl().startswith(
-            "https://www.amazon.com/ap/signin"
-        ):  # not the URL we wanted
-            html = resp.get_data()
-            soup = BeautifulSoup(html, "lxml")
-            err = soup.find_all("div", attrs={"id": "message_error"})
-            warn = soup.find_all("div", attrs={"class": "a-alert-content"})
-            msg = (
-                err
-                and err[0].renderContents()
-                or (warn and warn[0].renderContents())
-                or html
-            ).strip()
-            raise Exception("Login failed for %s, %s:\n%s" % (email, password, msg))
-
-    def get_url(self, url):
-        return self.br.open(url).get_data()
-
-    def clean_up(self):
-        pass
-
-
 class AmzChromeDriver(object):
     """
     Replacement driver to login to Amazon and download URLs using the Selenium
@@ -90,7 +39,7 @@ class AmzChromeDriver(object):
     def __init__(self):
         from selenium import webdriver
 
-        self.driver = webdriver.Chrome("/usr/local/bin/chromedriver")
+        self.driver = webdriver.Chrome("chromedriver")
         self.driver.implicitly_wait(5)
 
     def login(self, email, password):
@@ -156,7 +105,8 @@ class Emailer(object):
 
         smtp = smtplib.SMTP(self.smtp_host, self.smtp_port)
         smtp.starttls()
-        smtp.login(self.smtp_user, self.smtp_password)
+        if self.smtp_user:
+            smtp.login(self.smtp_user, self.smtp_password)
         smtp.sendmail(send_from, send_to, msg.as_string())
         smtp.close()
 
@@ -194,7 +144,7 @@ class AmzScraper(object):
         self.from_email = from_email
         self.to_email = to_email
         self.emailer = emailer
-        self.mc = memcache.Client(["127.0.0.1:11211"], debug=0)
+        self.mc = Client("127.0.0.1:11211")
         self.br = brcls()
         self.br.login(user, password)
 
@@ -283,20 +233,52 @@ def parse_args():
         description="Scrape an Amazon account and create order PDFs."
     )
     parser.add_argument(
-        "-u", "--user", required=True, help="Amazon.com username (email)."
-    )
-    parser.add_argument("-p", "--password", required=True, help="Amazon.com password.")
-    parser.add_argument("--smtp-user", required=False, help="SMTP username (optional).")
-    parser.add_argument(
-        "--smtp-password", required=False, help="SMTP password (optional)"
-    )
-    parser.add_argument("--smtp-host", required=False, help="SMTP host (optional)")
-    parser.add_argument("--smtp-port", required=False, help="SMTP port (optional)")
-    parser.add_argument(
-        "--from-email", required=False, help="From email (for sending emails)."
+        "-u",
+        "--user",
+        help="Amazon.com username (email).",
+        default=os.environ["AMAZON_USER"],
     )
     parser.add_argument(
-        "--to-email", required=False, help="To email (for sending emails)."
+        "-p",
+        "--password",
+        help="Amazon.com password.",
+        default=os.environ["AMAZON_PASSWORD"],
+    )
+    parser.add_argument(
+        "--smtp-user",
+        required=False,
+        help="SMTP username (optional).",
+        default=os.environ.get("SMTP_USER"),
+    )
+    parser.add_argument(
+        "--smtp-password",
+        required=False,
+        help="SMTP password (optional)",
+        default=os.environ.get("SMTP_PASSWORD"),
+    )
+    parser.add_argument(
+        "--smtp-host",
+        required=False,
+        help="SMTP host (optional)",
+        default=os.environ.get("SMTP_HOST"),
+    )
+    parser.add_argument(
+        "--smtp-port",
+        required=False,
+        help="SMTP port (optional)",
+        default=os.environ.get("SMTP_PORT"),
+    )
+    parser.add_argument(
+        "--from-email",
+        required=False,
+        help="From email (for sending emails).",
+        default=os.environ.get("FROM_EMAIL"),
+    )
+    parser.add_argument(
+        "--to-email",
+        required=False,
+        help="To email (for sending emails).",
+        default=os.environ.get("TO_EMAIL"),
     )
     parser.add_argument(
         "--cache-timeout",

@@ -1,5 +1,0 @@
-beautifulsoup4==4.8.1
-mechanize==0.4.3
-python-memcached==1.59
-selenium==3.141.0
-lxml==4.4.1
