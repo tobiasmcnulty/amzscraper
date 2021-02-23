@@ -10,11 +10,10 @@ To use::
     pip install git+https://github.com/tobiasmcnulty/amzscraper.git
     amscraper -u <email> -p <pass> 2021
 
-If it does need to download a page from Amazon, a random sleep is inserted to throttle
-connections to the server.
+A random sleep is inserted to throttle connections to the server.
 
 Orders will be downloaded to the ``orders/`` directory in your current directory by
-default
+default.
 
 For further options, see::
 
