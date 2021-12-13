@@ -12,7 +12,7 @@ setup(
     install_requires=[
         "beautifulsoup4==4.9.3",
         "selenium==3.141.0",
-        "lxml==4.6.2",
+        "lxml==4.6.5",
     ],
     entry_points={
         "console_scripts": [
