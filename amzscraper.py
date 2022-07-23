@@ -235,38 +235,32 @@ def parse_args():
         "--smtp-user",
         required=False,
         help="SMTP username (optional).",
-        #default=os.environ.get("SMTP_USER"),
     )
     parser.add_argument(
         "--smtp-password",
         required=False,
         help="SMTP password (optional)",
-        #default=os.environ.get("SMTP_PASSWORD"),
     )
     parser.add_argument(
         "--smtp-host",
         required=False,
         help="SMTP host (optional)",
-        #default=os.environ.get("SMTP_HOST"),
     )
     parser.add_argument(
         "--smtp-port",
         required=False,
         help="SMTP port (optional)",
-        #default=os.environ.get("SMTP_PORT"),
         default="0",
     )
     parser.add_argument(
         "--from-email",
         required=False,
         help="From email (for sending emails).",
-        #default=os.environ.get("FROM_EMAIL"),
     )
     parser.add_argument(
         "--to-email",
         required=False,
         help="To email (for sending emails).",
-        #default=os.environ.get("TO_EMAIL"),
     )
     parser.add_argument(
         "--dest-dir",
