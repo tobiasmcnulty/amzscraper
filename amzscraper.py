@@ -16,6 +16,7 @@ from email.utils import COMMASPACE, formatdate
 
 from bs4 import BeautifulSoup
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.common.by import By
 
 
 def rand_sleep(max_seconds=5):
@@ -45,22 +46,22 @@ class AmzChromeDriver(object):
         driver = self.driver
         driver.get("https://www.amazon.com/")
         rand_sleep()
-        driver.find_element_by_css_selector(
+        driver.find_element(By.CSS_SELECTOR,
             "#nav-signin-tooltip > a.nav-action-button"
         ).click()
         rand_sleep()
-        driver.find_element_by_id("ap_email").clear()
-        driver.find_element_by_id("ap_email").send_keys(email)
+        driver.find_element(By.ID, "ap_email").clear()
+        driver.find_element(By.ID, "ap_email").send_keys(email)
         # Sometimes there is a Continue button after entering your email;
         # sometimes there isn't.
         try:
-            driver.find_element_by_id("continue").click()
+            driver.find_element(By.ID,"continue").click()
             rand_sleep()
         except NoSuchElementException:
             print("No continue button found; ignoring...")
-        driver.find_element_by_id("ap_password").clear()
-        driver.find_element_by_id("ap_password").send_keys(password)
-        driver.find_element_by_id("signInSubmit").click()
+        driver.find_element(By.ID,"ap_password").clear()
+        driver.find_element(By.ID,"ap_password").send_keys(password)
+        driver.find_element(By.ID,"signInSubmit").click()
 
     def get_url(self, url):
         self.driver.get(url)
@@ -234,37 +235,32 @@ def parse_args():
         "--smtp-user",
         required=False,
         help="SMTP username (optional).",
-        default=os.environ.get("SMTP_USER"),
     )
     parser.add_argument(
         "--smtp-password",
         required=False,
         help="SMTP password (optional)",
-        default=os.environ.get("SMTP_PASSWORD"),
     )
     parser.add_argument(
         "--smtp-host",
         required=False,
         help="SMTP host (optional)",
-        default=os.environ.get("SMTP_HOST"),
     )
     parser.add_argument(
         "--smtp-port",
         required=False,
         help="SMTP port (optional)",
-        default=os.environ.get("SMTP_PORT"),
+        default="0",
     )
     parser.add_argument(
         "--from-email",
         required=False,
         help="From email (for sending emails).",
-        default=os.environ.get("FROM_EMAIL"),
     )
     parser.add_argument(
         "--to-email",
         required=False,
         help="To email (for sending emails).",
-        default=os.environ.get("TO_EMAIL"),
     )
     parser.add_argument(
         "--dest-dir",
