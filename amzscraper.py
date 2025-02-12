@@ -15,21 +15,26 @@ from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 
 from bs4 import BeautifulSoup
-from selenium.common.exceptions import NoSuchElementException
+from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
 
 
-def rand_sleep(max_seconds=5):
+def rand_sleep(max_seconds=3):
     """
     Wait a little while so we don't spam Amazon.
     """
-    seconds = random.randint(2, max_seconds)
+    seconds = random.randint(1, max_seconds)
     print("Sleeping for %s seconds..." % seconds, end="")
     sys.stdout.flush()
     time.sleep(seconds)
     print("done.")
 
 
-class AmzChromeDriver(object):
+class AmzChromeDriver:
     """
     Replacement driver to login to Amazon and download URLs using the Selenium
     ChromeDriver.
@@ -38,29 +43,65 @@ class AmzChromeDriver(object):
     def __init__(self):
         from selenium import webdriver
 
-        self.driver = webdriver.Chrome("chromedriver")
+        self.service = webdriver.ChromeService(
+            executable_path="/usr/local/bin/chromedriver"
+        )
+        self.driver = webdriver.Chrome(service=self.service)
         self.driver.implicitly_wait(5)
 
     def login(self, email, password):
         driver = self.driver
         driver.get("https://www.amazon.com/")
         rand_sleep()
-        driver.find_element_by_css_selector(
-            "#nav-signin-tooltip > a.nav-action-button"
-        ).click()
+        try:
+            signin_flyout = driver.find_element(
+                By.CSS_SELECTOR, "#nav-link-accountList-nav-line-1"
+            )
+            hover = ActionChains(driver).move_to_element(signin_flyout)
+            hover.perform()
+        except NoSuchElementException:
+            print("No login required.")
+            return
+        driver.find_element(By.CSS_SELECTOR, "a.nav-action-signin-button").click()
         rand_sleep()
-        driver.find_element_by_id("ap_email").clear()
-        driver.find_element_by_id("ap_email").send_keys(email)
+        driver.find_element(By.ID, "ap_email").clear()
+        driver.find_element(By.ID, "ap_email").send_keys(email)
         # Sometimes there is a Continue button after entering your email;
         # sometimes there isn't.
         try:
-            driver.find_element_by_id("continue").click()
-            rand_sleep()
-        except NoSuchElementException:
-            print("No continue button found; ignoring...")
-        driver.find_element_by_id("ap_password").clear()
-        driver.find_element_by_id("ap_password").send_keys(password)
-        driver.find_element_by_id("signInSubmit").click()
+            driver.find_element(By.ID, "continue").click()
+        except:
+            pass
+        rand_sleep()
+        driver.find_element(By.ID, "ap_password").send_keys(password)
+        driver.find_element(By.ID, "signInSubmit").click()
+
+        try:
+            # FIXME: This hasn't yet been tested since Amazon stopped asking for 2FA
+            verification_code_field = WebDriverWait(self.driver, 3).until(
+                EC.visibility_of_element_located((By.ID, "auth-mfa-otpcode"))
+            )
+            verification_code_field.send_keys(input("Verification code: "))
+            auth_signin_button = self.wait.until(
+                EC.element_to_be_clickable((By.ID, "auth-signin-button"))
+            )
+            auth_signin_button.click()
+        except TimeoutException:
+            print("No 2FA required.")
+            pass
+
+        try:
+            verification_code_field = WebDriverWait(self.driver, 3).until(
+                EC.visibility_of_element_located((By.ID, "auth-captcha-image"))
+            )
+            verification_code_field.send_keys(input("Captcha code: "))
+            auth_signin_button = self.wait.until(
+                EC.element_to_be_clickable((By.ID, "auth-signin-button"))
+            )
+            auth_signin_button.click()
+        except TimeoutException:
+            print("No captcha required.")
+            pass
 
     def get_url(self, url):
         self.driver.get(url)
@@ -73,7 +114,7 @@ class AmzChromeDriver(object):
         self.driver.quit()
 
 
-class Emailer(object):
+class Emailer:
     def __init__(self, smtp_host, smtp_port, smtp_user, smtp_password):
         self.smtp_host = smtp_host
         self.smtp_port = int(smtp_port)
@@ -110,8 +151,7 @@ class Emailer(object):
         smtp.close()
 
 
-class AmzScraper(object):
-
+class AmzScraper:
     base_url = "https://www.amazon.com"
     start_url = (
         base_url
@@ -158,22 +198,22 @@ class AmzScraper(object):
             html = self._fetch_url(url)
             soup = BeautifulSoup(html, "lxml")
             order_links = soup.find_all("a", href=self.order_id_re)
-            order_nums |= set(
-                [self.order_id_re.search(link["href"]).group(1) for link in order_links]
-            )
+            order_nums |= {
+                self.order_id_re.search(link["href"]).group(1) for link in order_links
+            }
             page_links = soup.find_all("a", text=str(page_num))
             if not page_links:
                 print("found no links for page_num=%s; assuming completion" % page_num)
                 break
             url = self.base_url + page_links[0]["href"]
-        print("found %s orders in %s" % (len(order_nums), self.year))
+        print("found {} orders in {}".format(len(order_nums), self.year))
         return order_nums
 
     def run(self):
         order_nums = self.get_order_nums()
         for oid in order_nums:
             orders = os.listdir(self.orders_dir)
-            if any(["{oid}.pdf".format(oid=oid) in o for o in orders]):
+            if any([f"{oid}.pdf" in o for o in orders]):
                 print("skipping order %s (already exists)" % oid)
                 continue
             url = self.order_url.format(oid=oid)
@@ -185,7 +225,7 @@ class AmzScraper(object):
             order_txt = soup.find_all(text=self.order_date_re)[0]
             date = order_txt.parent.next_sibling.strip()
             date = datetime.datetime.strptime(date, "%B %d, %Y").strftime("%Y-%m-%d")
-            fn = "amazon_order_{date}_{oid}.".format(date=date, oid=oid) + "{ext}"
+            fn = f"amazon_order_{date}_{oid}." + "{ext}"
             fn = os.path.join(self.orders_dir, fn)
             with open(fn.format(ext="html"), "w") as f:
                 f.write(html)
@@ -286,9 +326,9 @@ def parse_args():
 def main():
     args = vars(parse_args())
     smtp_args = {k: args.pop(k) for k in list(args.keys()) if k.startswith("smtp_")}
-    if len(smtp_args) == 4:
+    if all(smtp_args.values()):
         emailer = Emailer(**smtp_args)
-    elif len(smtp_args) == 0:
+    elif not any(smtp_args.values()):
         emailer = None
     else:
         raise Exception("Did not get 0 or 4 SMTP arguments.")

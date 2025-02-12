@@ -9,11 +9,11 @@ setup(
     author_email="tobias@caktusgroup.com",
     license="MIT",
     py_modules=["amzscraper"],
-    install_requires=[
-        "beautifulsoup4==4.9.3",
-        "selenium==3.141.0",
-        "lxml==4.6.2",
-    ],
+    # install_requires=[
+    #     "beautifulsoup4==4.9.3",
+    #     "selenium==3.141.0",
+    #     "lxml==4.6.2",
+    # ],
     entry_points={
         "console_scripts": [
             "amzscraper=amzscraper:main",
